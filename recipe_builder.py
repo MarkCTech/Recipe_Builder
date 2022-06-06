@@ -7,13 +7,6 @@ def main():
     recipe_database(recipe)
 
 
-# def recipe(ingredient):
-#     recipe = []
-#     ingr_row = ingredient
-#     recipe += ingr_row
-#     recipe_database(recipe)
-
-
 def recipe_database(recipe):
     path = (Path.cwd() / "database")
     path_obj = path / 'recipes.db'
@@ -21,7 +14,7 @@ def recipe_database(recipe):
 
     try:
         conn = sqlite3.connect(str(path_obj))
-    except ValueError:
+    except FileNotFoundError:
         print("Database 'recipes.db' does not exist")
         if not check_path(path_obj):
             conn = sqlite3.connect(str(path_obj))
@@ -37,27 +30,28 @@ def recipe_database(recipe):
 
 def make_recipe_table(cur):
     cur.execute(
-        '''CREATE TABLE IF NOT EXISTS recipes (Recipe,Servings)''')
+        '''CREATE TABLE IF NOT EXISTS recipes (Recipe,Servings,Ingredients)''')
 
 
 def check_rec_database(cur, recipe):
     try:
-        cur.execute("select * from recipes where Recipe=:name", {"name": {recipe}})
+        cur.execute("select * from recipes where recipe=:name", {"name": {recipe}})
         result = cur.fetchall()
-        return result
-    finally:
-        return False
+    except:
+        result = False
+    return result
 
 
 def add_recipe(cur, recipe):
     if not check_rec_database(cur, recipe):
         print("\nRecipe not found, please add it yourself!")
-        recipe = [recipe]
+        name = recipe
+        rec_ingr = []
 
         while True:
             ingredient = input("\nEnter Ingredient to add to recipe: ")
             ingr_database(ingredient)
-            recipe.append(ingredient)
+            rec_ingr.append(ingredient)
             x = input("Add another ingredient? (Y/N): ")
 
             if x[0].lower() == 'y':
@@ -70,26 +64,19 @@ def add_recipe(cur, recipe):
                 print("Try again.")
                 continue
 
-        add_rec_database(cur, recipe)
+        add_rec_database(cur, name, rec_ingr)
 
 
-def add_rec_database(cur, recipe):
-    rec_name = recipe[0]
+def add_rec_database(cur, name, rec_ingr):
+    rec_name = str(name)
     rec_serv = input("Servings: ")
+    rec_ingr = str(rec_ingr)
 
     # Insert a row of data
+
     cur.execute(
-        "INSERT INTO recipes (Recipe,Servings) VALUES (?,?)",
-        (rec_name, rec_serv))
-
-
-def check_recipe_database(cur, recipe):
-    try:
-        cur.execute("select * from recipes where recipe=:name", {"name": {recipe}})
-        result = cur.fetchall()
-        return result
-    finally:
-        return False
+        "INSERT INTO recipes (Recipe,Servings,Ingredients) VALUES (?,?,?)",
+        (rec_name, rec_serv, rec_ingr))
 
 
 def ingr_database(ingredient):
@@ -127,9 +114,9 @@ def check_ingr_database(cur, ingredient):
     try:
         cur.execute("select * from ingredients where ingredient=:name", {"name": {ingredient}})
         result = cur.fetchall()
-        return result
-    finally:
-        return False
+    except:
+        result = False
+    return result
 
 
 def add_ingr_database(cur, ingredient):
