@@ -8,24 +8,19 @@ def main():
 
 
 def recipe_database(recipe):
+    # Create or connect to database
     path = (Path.cwd() / "database")
     path_obj = path / 'recipes.db'
-    conn = ''
+    con = sqlite3.connect(str(path_obj))
+    cur = con.cursor()
+    make_recipe_table(cur)
+    make_ingr_table(cur)
 
-    try:
-        conn = sqlite3.connect(str(path_obj))
-    except FileNotFoundError:
-        print("Database 'recipes.db' does not exist")
-        if not check_path(path_obj):
-            conn = sqlite3.connect(str(path_obj))
-
-    curr = conn.cursor()
-    make_recipe_table(curr)
-    add_recipe(curr, recipe)
+    add_recipe(cur, recipe)
 
     # Commit the changes and close
-    conn.commit()
-    conn.close()
+    con.commit()
+    con.close()
 
 
 def make_recipe_table(cur):
@@ -33,38 +28,46 @@ def make_recipe_table(cur):
         '''CREATE TABLE IF NOT EXISTS recipes (Recipe,Servings,Ingredients)''')
 
 
-def check_rec_database(cur, recipe):
-    try:
-        cur.execute("select * from recipes where recipe=:name", {"name": {recipe}})
-        result = cur.fetchall()
-    except:
-        result = False
-    return result
-
-
 def add_recipe(cur, recipe):
-    if not check_rec_database(cur, recipe):
+    check = check_rec_database(cur, recipe)
+    if not check:
         print("\nRecipe not found, please add it yourself!")
-        name = recipe
         rec_ingr = []
-
         while True:
             ingredient = input("\nEnter Ingredient to add to recipe: ")
-            ingr_database(ingredient)
+            add_ingredient(cur, ingredient)
             rec_ingr.append(ingredient)
-            x = input("Add another ingredient? (Y/N): ")
 
-            if x[0].lower() == 'y':
+            if ask_another_ingr():
                 continue
-
-            elif x[0].lower() == 'n':
+            if not ask_another_ingr():
                 break
 
-            else:
-                print("Try again.")
-                continue
+        add_rec_database(cur, recipe, rec_ingr)
 
-        add_rec_database(cur, name, rec_ingr)
+    elif check[0] == recipe:
+        print("Recipe found!")
+
+
+def ask_another_ingr():
+    global playing
+    while True:
+        x = input("Add another ingredient? (Y/N): ")
+        if x == '':
+            print("Try again")
+        elif x[0].lower() == 'y':
+            return True
+        elif x[0].lower() == 'n':
+            return False
+        else:
+            print("Try again.")
+            continue
+
+
+
+def check_rec_database(cur, recipe):
+    cur.execute("select * from recipes where Recipe=:name", {"name": recipe})
+    return cur.fetchall()
 
 
 def add_rec_database(cur, name, rec_ingr):
@@ -79,44 +82,23 @@ def add_rec_database(cur, name, rec_ingr):
         (rec_name, rec_serv, rec_ingr))
 
 
-def ingr_database(ingredient):
-    path = (Path.cwd() / "database")
-    path_obj = path / 'ingredients.db'
-    con = ''
-
-    try:
-        con = sqlite3.connect(str(path_obj))
-    except ValueError:
-        print("Database 'ingredients.db' does not exist")
-        if not check_path(path_obj):
-            con = sqlite3.connect(str(path_obj))
-
-    cur = con.cursor()
-    make_ingr_table(cur)
-    add_ingredient(cur, ingredient)
-
-    # Commit the changes and close
-    con.commit()
-    con.close()
-
-
 def make_ingr_table(cur):
     cur.execute(
         '''CREATE TABLE IF NOT EXISTS ingredients (Ingredient,Grams,Calories,Protein,Carbs,Satfat,Unsat,Fibre)''')
 
 
 def add_ingredient(cur, ingredient):
-    if not check_ingr_database(cur, ingredient):
+    check = check_ingr_database(cur, ingredient)
+    print(check)
+    if not check:
         add_ingr_database(cur, ingredient)
+    elif check[0] == ingredient:
+        print("Ingredient found!")
 
 
 def check_ingr_database(cur, ingredient):
-    try:
-        cur.execute("select * from ingredients where ingredient=:name", {"name": {ingredient}})
-        result = cur.fetchall()
-    except:
-        result = False
-    return result
+    cur.execute("select * from ingredients where Ingredient=:name", {"name": ingredient})
+    return cur.fetchall()
 
 
 def add_ingr_database(cur, ingredient):
