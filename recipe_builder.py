@@ -38,9 +38,11 @@ def add_recipe(cur, recipe):
             add_ingredient(cur, ingredient)
             rec_ingr.append(ingredient)
 
-            if ask_another_ingr():
+            ingr_check = ask_another_ingr()
+
+            if ingr_check:
                 continue
-            if not ask_another_ingr():
+            if not ingr_check:
                 break
 
         add_rec_database(cur, recipe, rec_ingr)
@@ -50,7 +52,6 @@ def add_recipe(cur, recipe):
 
 
 def ask_another_ingr():
-    global playing
     while True:
         x = input("Add another ingredient? (Y/N): ")
         if x == '':
@@ -58,11 +59,10 @@ def ask_another_ingr():
         elif x[0].lower() == 'y':
             return True
         elif x[0].lower() == 'n':
-            return False
+            break
         else:
             print("Try again.")
             continue
-
 
 
 def check_rec_database(cur, recipe):
@@ -89,7 +89,6 @@ def make_ingr_table(cur):
 
 def add_ingredient(cur, ingredient):
     check = check_ingr_database(cur, ingredient)
-    print(check)
     if not check:
         add_ingr_database(cur, ingredient)
     elif check[0] == ingredient:
