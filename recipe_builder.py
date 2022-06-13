@@ -144,7 +144,7 @@ def set_db():
 def choose(res_list):
     # Presents User with list of search results from recipe or ingredient query
     # And asks them to pick one, or enter 0 for none
-    print(f"\nAre any of these what you're looking for? {res_list}")
+    print(f"\nAre any of these what you're looking for? \n\n{res_list}")
     length = len(res_list)
     while True:
         try:
@@ -163,74 +163,88 @@ def choose(res_list):
             print('Must be integer, Try Again!')
 
 
-def ingr_func(ingr_name):
-    # Controls state of play
-    rec_ingr = []
-    ingr_play = True
-    while ingr_play:
+def ingr_db_logic():
+    # Search for ingredient, User choose which or none
+    ingr_name = input("Enter Ingredient to add to recipe: ")
+    srch_ingr = SearchIngr(ingr_name)
+    srch_ingr_res = srch_ingr.search(ingr_name)
+    choice = choose(srch_ingr_res)
 
-        # Search for ingredient, User choose which or none
-        srch_ingr = SearchIngr(ingr_name)
-        srch_ingr_res = srch_ingr.search(ingr_name)
-        choice = choose(srch_ingr_res)
-        print(choice)
-        print(bool(choice))
+    if type(choice) is int:
+        # If choice is valid index, ingredient is added to ingredient list
+        ingredient = srch_ingr_res[choice]
+        print("\nIngredient found!")
+        print(ingredient)
+        ingredient = AddIngr(ingredient[0], ingredient[1], ingredient[2])
+        return ingredient
 
-        if type(choice) is int:
-            # If choice is valid index, ingredient is added to recipe ingredients rec_ingr
-            result = srch_ingr_res[choice]
-            print("\nIngredient found!")
-            print(result)
-            rec_ingr.append(ingr_name)
+    if not choice and type(choice) is not int:
+        # If ingredient not in database, User adds macros
+        grams = input("Serving in Grams: ")
+        macros = add_ingr()
 
-        if not choice and choice != 0:
-            # If ingredient not in database, User adds macros
-            grams = input("Serving in Grams: ")
-            macros = add_ingr()
+        # Adds ingredient to database
+        ingredient = AddIngr(ingr_name, grams, macros)
+        ingredient.add_deets(ingr_name, grams, macros)
+        print(f"\n{ingredient.name} created!")
+        return ingredient
 
-            # Adds ingredient to database
-            ingredient = AddIngr(ingr_name, grams, macros)
-            ingredient.add_deets(ingr_name, grams, macros)
 
-            # Adds ingredient to recipe ingredient list
-            rec_ingr.append(ingr_name)
+def rec_db_logic():
+    ingredient_list = []
 
-        # Asks if user is finished adding ingredients rec_ingr
-        ingr_play = ask_another("ingredient")
-    return rec_ingr
+    # Search for recipe in database
+    rec_name = input("\nEnter recipe name to search for: ")
+    srch_rec = SearchRec(rec_name)
+    srch_rec_res = srch_rec.search(rec_name)
+
+    # User chooses which recipe from search results, or none. Assigns int or False to choice
+    choice = choose(srch_rec_res)
+
+    # If recipe in database, recipe log is saved
+    if type(choice) is int:
+        # needs add to log
+        recipe = srch_rec_res[choice]
+        print("\nRecipe found!")
+        return recipe
+
+    # If recipe not in database, User adds the details
+    elif not choice:
+        print("\nRecipe not found, please add it yourself!")
+
+        # Controls state of play
+        ingr_play = True
+        while ingr_play:
+
+            # Calls ingr_db_logic, searches db to return ingredient
+            ingredient = ingr_db_logic()
+            ingredient_list.append(ingredient.name)
+
+            # Asks if user is finished adding to ingredient list
+            ingr_play = ask_another("ingredient")
+
+        recipe_servings = str(input(f"How many servings of {rec_name}? "))
+        recipe = make_recipe(rec_name, recipe_servings, ingredient_list)
+        return recipe
+
+
+def make_recipe(name, servings, ingredient_list):
+    # Adds recipe to database
+    rec_name = str(name)
+    servings = str(servings)
+    ingr_list = str(ingredient_list)
+    recipe = AddRecipe(rec_name, servings, ingr_list)
+    recipe.add_deets(rec_name, servings, ingr_list)
+    return recipe
 
 
 def main():
     set_db()
     play_check = True
     while play_check:
-        # Search for recipe in database, User choose which or none
-        rec_name = input("\nEnter recipe name to search for: ")
-        srch_rec = SearchRec(rec_name)
-        srch_rec_res = srch_rec.search(rec_name)
-        choice = choose(srch_rec_res)
 
-        rec_ingr = []
-
-        # If recipe in database, recipe log is saved
-        if choice is int:
-            # needs add to log
-            recipe = srch_rec_res[choice]
-            print("\nRecipe found!")
-            print(recipe)
-
-        elif not choice:
-            # If recipe not in database, User adds the details
-            print("\nRecipe not found, please add it yourself!")
-            ingr_name = input("Enter Ingredient to add to recipe: ")
-            rec_ingr.append(ingr_func(ingr_name)[0])
-
-        # Adds recipe to database
-        servings = str(input(f"How many servings of {rec_name}? "))
-        str_rec_ingr = str(rec_ingr)
-        print(type(str_rec_ingr), str_rec_ingr)
-        recipe = AddRecipe(rec_name, servings, str_rec_ingr)
-        recipe.add_deets(rec_name, servings, str_rec_ingr)
+        # Returns, or creates and returns a recipe
+        rec_db_logic()
 
         # Asks if finished
         play_check = ask_another("recipe")
