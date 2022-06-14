@@ -4,35 +4,35 @@ from pathlib import Path
 
 
 class AddData:
-    def __init__(self, name, ingr_list, macros):
+    def __init__(self, name, calories, ingr_macros):
         self.name = name
-        self.ingr_list = ingr_list
-        self.macros = macros
+        self.calories = calories
+        self.ingr_list = ingr_macros
 
     def add_deets(self, *args):
         print("Add SQL values to database")
 
 
 class AddRecipe(AddData):
-    def add_deets(self, name, servings, ingr_list):
+    def add_deets(self, name, calories, ingr_list):
         # Connect to database, insert a row of data into recipe table and close
         con = set_con()
         cur = con.cursor()
-        values = (name, servings, ingr_list)
+        values = (name, calories, ingr_list)
         cur.execute(
-            "INSERT INTO recipes VALUES (?,?,?)",
+            "REPLACE INTO recipes VALUES (?,?,?)",
             values)
         end_con(con)
 
 
 class AddIngr(AddData):
-    def add_deets(self, ingr_name, servings, macros):
+    def add_deets(self, ingr_name, calories, macros):
         # Connect to database, insert a row of data into ingredient table and close
         con = set_con()
         cur = con.cursor()
-        values = (ingr_name, servings, macros[0], macros[1], macros[2], macros[3], macros[4], macros[5])
+        values = (ingr_name, calories, macros[0], macros[1], macros[2], macros[3], macros[4], macros[5])
         cur.execute(
-            "INSERT INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
+            "REPLACE INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
             values)
         end_con(con)
 
@@ -133,8 +133,10 @@ def set_db():
     # Sets cursor to handle SQL, and ensures tables are built
     cur = con.cursor()
     cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Servings,Ingredients)''')
+    cur. execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe ON recipes(Recipe);''')
     cur.execute('''CREATE TABLE IF NOT EXISTS ingredients (Ingredient,Grams,Calories,Protein,Carbs,Satfat,Unsat,
     Fibre)''')
+    cur. execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_ingredient ON ingredients(Ingredient);''')
     cur.execute('''CREATE TABLE IF NOT EXISTS log (Name, DateTime, Ingredients)''')
     # Commit the changes and close
     con.commit()
@@ -150,14 +152,12 @@ def choose(res_list):
         try:
             x = int(input("\nEnter item number, or 0 for no: "))
             if type(x) is int:
-
                 if x > length:
                     print(f'Choice must be below {length}')
                 elif x == 0:
                     return False
                 else:
                     return x - 1
-
                 break
         except ValueError:
             print('Must be integer, Try Again!')
@@ -210,7 +210,6 @@ def rec_db_logic():
 
     # User chooses which recipe from search results, or none. Assigns int or False to choice
     choice = choose(srch_rec_res)
-    print(choice)
 
     # If recipe in database, recipe log is saved
     if type(choice) is int:
@@ -235,8 +234,9 @@ def rec_db_logic():
             # Asks if user is finished adding to ingredient list
             ingr_play = ask_another("ingredient")
 
-        recipe_servings = str(input(f"How many servings of {rec_name}? "))
+        recipe_servings = str(input(f"How many calories of {rec_name} this time? "))
         recipe = make_recipe(rec_name, recipe_servings, ingredient_list)
+        print(recipe)
         return recipe
 
 
@@ -246,14 +246,12 @@ def main():
     while play_check:
         # Returns, or creates and returns a recipe
         recipe = rec_db_logic()
-        recipe_name = recipe.name
-        recipe_ingr = recipe.ingr_list
 
         # Add recipe to log
         date_time = datetime.now()
-
-        print(f"Adding {recipe_name} at {date_time}\nThe ingredients are: \n{recipe_ingr}")
-
+        print(f"Recipe name is: {recipe.name}\n"
+              f"Calories in this recipe are: {recipe.calories}\n"
+              f"Ingredients are: {recipe.ingr_list}\n")
         addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
         addlog.add_deets(recipe.name, date_time, recipe.ingr_list)
 
