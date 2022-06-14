@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 from pathlib import Path
 
@@ -29,9 +30,7 @@ class AddIngr(AddData):
         # Connect to database, insert a row of data into ingredient table and close
         con = set_con()
         cur = con.cursor()
-
         values = (ingr_name, servings, macros[0], macros[1], macros[2], macros[3], macros[4], macros[5])
-
         cur.execute(
             "INSERT INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
             values)
@@ -39,13 +38,14 @@ class AddIngr(AddData):
 
 
 class AddLog(AddData):
-    def add_deets(self, log_name, *args):
+    def add_deets(self, recipe_name, date_time, ingredients):
         # Connect to database, insert a row of data into daily log and close
         con = set_con()
         cur = con.cursor()
+        values = (recipe_name, date_time, ingredients)
         cur.execute(
             "INSERT INTO log VALUES (?,?,?)",
-            (args[0], args[1], args[2]))
+            values)
         end_con(con)
 
 
@@ -135,7 +135,7 @@ def set_db():
     cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Servings,Ingredients)''')
     cur.execute('''CREATE TABLE IF NOT EXISTS ingredients (Ingredient,Grams,Calories,Protein,Carbs,Satfat,Unsat,
     Fibre)''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS log (Day, Time, Recipe, Calories)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS log (Name, DateTime, Ingredients)''')
     # Commit the changes and close
     con.commit()
     con.close()
@@ -161,6 +161,16 @@ def choose(res_list):
                 break
         except ValueError:
             print('Must be integer, Try Again!')
+
+
+def make_recipe(name, servings, ingredient_list):
+    # Adds recipe to database
+    rec_name = str(name)
+    servings = str(servings)
+    ingr_list = str(ingredient_list)
+    recipe = AddRecipe(rec_name, servings, ingr_list)
+    recipe.add_deets(rec_name, servings, ingr_list)
+    return recipe
 
 
 def ingr_db_logic():
@@ -200,12 +210,15 @@ def rec_db_logic():
 
     # User chooses which recipe from search results, or none. Assigns int or False to choice
     choice = choose(srch_rec_res)
+    print(choice)
 
     # If recipe in database, recipe log is saved
     if type(choice) is int:
         # needs add to log
         recipe = srch_rec_res[choice]
         print("\nRecipe found!")
+        print(recipe)
+        recipe = AddRecipe(recipe[0], recipe[1], recipe[2])
         return recipe
 
     # If recipe not in database, User adds the details
@@ -215,7 +228,6 @@ def rec_db_logic():
         # Controls state of play
         ingr_play = True
         while ingr_play:
-
             # Calls ingr_db_logic, searches db to return ingredient
             ingredient = ingr_db_logic()
             ingredient_list.append(ingredient.name)
@@ -228,23 +240,22 @@ def rec_db_logic():
         return recipe
 
 
-def make_recipe(name, servings, ingredient_list):
-    # Adds recipe to database
-    rec_name = str(name)
-    servings = str(servings)
-    ingr_list = str(ingredient_list)
-    recipe = AddRecipe(rec_name, servings, ingr_list)
-    recipe.add_deets(rec_name, servings, ingr_list)
-    return recipe
-
-
 def main():
     set_db()
     play_check = True
     while play_check:
-
         # Returns, or creates and returns a recipe
-        rec_db_logic()
+        recipe = rec_db_logic()
+        recipe_name = recipe.name
+        recipe_ingr = recipe.ingr_list
+
+        # Add recipe to log
+        date_time = datetime.now()
+
+        print(f"Adding {recipe_name} at {date_time}\nThe ingredients are: \n{recipe_ingr}")
+
+        addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
+        addlog.add_deets(recipe.name, date_time, recipe.ingr_list)
 
         # Asks if finished
         play_check = ask_another("recipe")
