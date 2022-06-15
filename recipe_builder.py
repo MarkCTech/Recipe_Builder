@@ -152,19 +152,18 @@ def set_db():
 def choose(res_list):
     # Presents User with list of search results from recipe or ingredient query
     # And asks them to pick one, or enter 0 for none
-    print(f"\nAre any of these what you're looking for? \n\n{res_list}")
-    length = len(res_list)
+    print(f"\nAre these the details you're looking for? \n\n{res_list}")
     while True:
         try:
-            x = int(input("\nEnter item number, or 0 for no: "))
-            if type(x) is int:
-                if x > length:
-                    print(f'Choice must be below {length}')
-                elif x == 0:
+            x = str(input("\nEnter Yes or No: "))
+            if type(x) is str:
+                if x[0].lower() == 'n':
                     return False
+                elif x[0].lower() == 'y':
+                    return True
                 else:
-                    return x - 1
-                break
+                    print("Must be y or n")
+                    continue
         except ValueError:
             print('Must be integer, Try Again!')
 
@@ -183,27 +182,27 @@ def ingr_db_logic():
     # Search for ingredient, User choose which or none
     ingr_name = input("Enter Ingredient to add to recipe: ")
     srch_ingr = SearchIngr(ingr_name)
-    srch_ingr_res = srch_ingr.search(ingr_name)
-    choice = choose(srch_ingr_res)
+    ingredient = srch_ingr.search(ingr_name)
+    choice = choose(ingredient)
 
-    if type(choice) is int:
-        # If choice is valid index, ingredient is added to ingredient list
-        ingredient = srch_ingr_res[choice]
-        print("\nIngredient found!")
-        print(ingredient)
-        grams = str(input("How many grams for this serving? "))
-        name = ingredient[0]
-        name.join(grams)
-        calories = str(input("How many calories for this serving? "))
-        print(f"\nEntering {grams} grams, or {calories} calories of {name} to ingredient database \n")
-        ingredient = AddIngr(ingredient[0], ingredient[1], ingredient[2])
+    calories = str(input("How many calories for this serving? "))
+    grams = str(input("How many grams for this serving? "))
+    calgrams = (calories, grams)
+
+    if choice:
+        # If choice is True, premade ingredient is added to ingredient list
+        ingr = ingredient[0]
+        print(f"\nIngredient found: {ingr[0]}")
+        print(ingr)
+        macros = ingr[3:]
+
+        print(f"\nEntering {grams} grams / {calories} calories of {ingr[0]} into recipe \n")
+        ingredient = AddIngr(ingr_name, calgrams, macros)
         return ingredient
 
-    if not choice and type(choice) is not int:
-        # If ingredient not in database, User adds macros
-        calories = int(input("How many calories for this serving: "))
+    if not choice:
+        # If ingredient not in database, User adds calgrams and macros
         macros = add_ingr()
-        grams = int(input("\nHow many grams for this serving?  "))
         calgrams = (calories, grams)
 
         # Adds ingredient to database
@@ -213,7 +212,7 @@ def ingr_db_logic():
         calories = grams[0]
         grams = grams[1]
         print(f"\nEntering {grams} grams, or {calories} calories of {ingredient.name} "
-              f"into ingredient database ")
+              f"into recipe ")
         return ingredient
 
 
@@ -223,18 +222,20 @@ def rec_db_logic():
     # Search for recipe in database
     rec_name = input("\nEnter recipe name to search for: ")
     srch_rec = SearchRec(rec_name)
-    srch_rec_res = srch_rec.search(rec_name)
+    recipe_list = srch_rec.search(rec_name)
+    recipe = recipe_list
 
-    # User chooses which recipe from search results, or none. Assigns int or False to choice
-    choice = choose(srch_rec_res)
-
+    # User chooses if premade recipe is correct. Assigns True or False to choice
+    choice = choose(recipe)
     # If recipe in database, recipe log is saved
-    if type(choice) is int:
-        # needs add to log
-        recipe = srch_rec_res[choice]
+    if choice:
+        recipe = recipe[0]
+        rec_name = recipe[0]
+        calories = recipe[1]
+        ingredient_list.append(recipe[2])
+        ingredient_list = str(ingredient_list)
         print("\nRecipe found!")
-        print(recipe)
-        recipe = AddRecipe(recipe[0], recipe[1], recipe[2])
+        recipe = AddRecipe(rec_name, calories, ingredient_list)
         return recipe
 
     # If recipe not in database, User adds the details
