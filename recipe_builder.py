@@ -4,10 +4,10 @@ from pathlib import Path
 
 
 class AddData:
-    def __init__(self, name, calories, ingr_macros):
+    def __init__(self, name, calories, ingr_list):
         self.name = name
         self.calories = calories
-        self.ingr_list = ingr_macros
+        self.ingr_list = ingr_list
 
     def add_deets(self, *args):
         print("Add SQL values to database")
@@ -26,11 +26,18 @@ class AddRecipe(AddData):
 
 
 class AddIngr(AddData):
-    def add_deets(self, ingr_name, calories, macros):
+    def __init__(self, name, calgrams, macros):
+        super().__init__(name, calgrams, macros)
+        self.calgrams = calgrams
+        self.macros = macros
+
+    def add_deets(self, name, calgrams, macros):
+        calories = calgrams[0]
+        grams = calgrams[1]
         # Connect to database, insert a row of data into ingredient table and close
         con = set_con()
         cur = con.cursor()
-        values = (ingr_name, calories, macros[0], macros[1], macros[2], macros[3], macros[4], macros[5])
+        values = (name, calories, grams, macros[1], macros[1], macros[2], macros[3], macros[4])
         cur.execute(
             "REPLACE INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
             values)
@@ -100,14 +107,13 @@ def ask_another(name):
 
 def add_ingr():
     # Adds values and returns a tuple of ingredient macros
-    cals = input("Calories per Serving: ")
     pro = input("Protein per Serving: ")
     carbs = input("Carbs per serving: ")
     satfat = input("Saturated Fat per Serving: ")
     unsat = input("Unsaturated Fat per Serving: ")
     fibre = input("Fibre per Serving: ")
 
-    macro_tup = (cals, pro, carbs, satfat, unsat, fibre)
+    macro_tup = (pro, carbs, satfat, unsat, fibre)
     return macro_tup
 
 
@@ -185,18 +191,29 @@ def ingr_db_logic():
         ingredient = srch_ingr_res[choice]
         print("\nIngredient found!")
         print(ingredient)
+        grams = str(input("How many grams for this serving? "))
+        name = ingredient[0]
+        name.join(grams)
+        calories = str(input("How many calories for this serving? "))
+        print(f"\nEntering {grams} grams, or {calories} calories of {name} to ingredient database \n")
         ingredient = AddIngr(ingredient[0], ingredient[1], ingredient[2])
         return ingredient
 
     if not choice and type(choice) is not int:
         # If ingredient not in database, User adds macros
-        grams = input("Serving in Grams: ")
+        calories = int(input("How many calories for this serving: "))
         macros = add_ingr()
+        grams = int(input("\nHow many grams for this serving?  "))
+        calgrams = (calories, grams)
 
         # Adds ingredient to database
-        ingredient = AddIngr(ingr_name, grams, macros)
-        ingredient.add_deets(ingr_name, grams, macros)
-        print(f"\n{ingredient.name} created!")
+        ingredient = AddIngr(ingr_name, calgrams, macros)
+        ingredient.add_deets(ingr_name, calgrams, macros)
+        grams = ingredient.calgrams
+        calories = grams[0]
+        grams = grams[1]
+        print(f"\nEntering {grams} grams, or {calories} calories of {ingredient.name} "
+              f"into ingredient database ")
         return ingredient
 
 
@@ -225,18 +242,19 @@ def rec_db_logic():
         print("\nRecipe not found, please add it yourself!")
 
         # Controls state of play
+        calories = 0
         ingr_play = True
         while ingr_play:
-            # Calls ingr_db_logic, searches db to return ingredient
+            # Calls ingr_db_logic, searches db to insert or return ingredient
             ingredient = ingr_db_logic()
             ingredient_list.append(ingredient.name)
+            calgrams = ingredient.calories
+            calories += int(calgrams[0])
 
             # Asks if user is finished adding to ingredient list
             ingr_play = ask_another("ingredient")
 
-        recipe_servings = str(input(f"How many calories of {rec_name} this time? "))
-        recipe = make_recipe(rec_name, recipe_servings, ingredient_list)
-        print(recipe)
+        recipe = make_recipe(rec_name, calories, ingredient_list)
         return recipe
 
 
@@ -249,7 +267,7 @@ def main():
 
         # Add recipe to log
         date_time = datetime.now()
-        print(f"Recipe name is: {recipe.name}\n"
+        print(f"\nRecipe name is: {recipe.name}\n"
               f"Calories in this recipe are: {recipe.calories}\n"
               f"Ingredients are: {recipe.ingr_list}\n")
         addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
