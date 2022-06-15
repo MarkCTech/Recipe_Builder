@@ -138,7 +138,7 @@ def set_db():
     con = sqlite3.connect(str(path_obj))
     # Sets cursor to handle SQL, and ensures tables are built
     cur = con.cursor()
-    cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Servings,Ingredients)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Calories,Ingredients)''')
     cur. execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe ON recipes(Recipe);''')
     cur.execute('''CREATE TABLE IF NOT EXISTS ingredients (Ingredient,Grams,Calories,Protein,Carbs,Satfat,Unsat,
     Fibre)''')
