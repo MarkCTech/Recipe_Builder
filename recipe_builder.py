@@ -14,11 +14,11 @@ class AddData:
 
 
 class AddRecipe(AddData):
-    def add_deets(self, name, calories, ingr_list):
+    def add_deets(self, name, macros, ingredients):
         # Connect to database, insert a row of data into recipe table and close
         con = set_con()
         cur = con.cursor()
-        values = (name, calories, ingr_list)
+        values = (name, macros, ingredients)
         cur.execute(
             "REPLACE INTO recipes VALUES (?,?,?)",
             values)
@@ -32,12 +32,12 @@ class AddIngr(AddData):
         self.macros = macros
 
     def add_deets(self, name, calgrams, macros):
-        calories = calgrams[0]
-        grams = calgrams[1]
+        calories = calgrams[1]
+        grams = calgrams[0]
         # Connect to database, insert a row of data into ingredient table and close
         con = set_con()
         cur = con.cursor()
-        values = (name, calories, grams, macros[1], macros[1], macros[2], macros[3], macros[4])
+        values = (name, calories, grams, macros[0], macros[1], macros[2], macros[3], macros[4])
         cur.execute(
             "REPLACE INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
             values)
@@ -105,7 +105,7 @@ def ask_another(name):
         print("Try again.")
 
 
-def add_ingr():
+def add_macros():
     # Adds values and returns a tuple of ingredient macros
     pro = input("Protein per Serving: ")
     carbs = input("Carbs per serving: ")
@@ -168,13 +168,13 @@ def choose(res_list):
             print('Must be integer, Try Again!')
 
 
-def make_recipe(name, servings, ingredient_list):
+def make_recipe(name, macros, ingredient_list):
     # Adds recipe to database
     rec_name = str(name)
-    servings = str(servings)
+    macros = str(macros)
     ingr_list = str(ingredient_list)
-    recipe = AddRecipe(rec_name, servings, ingr_list)
-    recipe.add_deets(rec_name, servings, ingr_list)
+    recipe = AddRecipe(rec_name, macros, ingr_list)
+    recipe.add_deets(rec_name, macros, ingr_list)
     return recipe
 
 
@@ -185,39 +185,62 @@ def ingr_db_logic():
     ingredient = srch_ingr.search(ingr_name)
     choice = choose(ingredient)
 
-    calories = str(input("How many calories for this serving? "))
-    grams = str(input("How many grams for this serving? "))
-    calgrams = (calories, grams)
+    # User chooses an ingredient or makes it, enters grams per STANDARD serving / THIS serving
+    try:
+        if choice:
+            # If choice is True, premade ingredient is added to ingredient list
+            ingr = ingredient[0]
+            print(f"\nIngredient found: {ingr[0]}")
+            print(ingr)
 
-    if choice:
-        # If choice is True, premade ingredient is added to ingredient list
-        ingr = ingredient[0]
-        print(f"\nIngredient found: {ingr[0]}")
-        print(ingr)
-        macros = ingr[3:]
+            grams = str(ingr[1])
+            calories = str(ingr[2])
+            macros = ingr[3:]
 
-        print(f"\nEntering {grams} grams / {calories} calories of {ingr[0]} into recipe \n")
-        ingredient = AddIngr(ingr_name, calgrams, macros)
-        return ingredient
+            calgrams = (grams, calories)
 
-    if not choice:
-        # If ingredient not in database, User adds calgrams and macros
-        macros = add_ingr()
-        calgrams = (calories, grams)
+            # Creates ingredient object
+            ingredient = AddIngr(ingr_name, calgrams, macros)
 
-        # Adds ingredient to database
-        ingredient = AddIngr(ingr_name, calgrams, macros)
-        ingredient.add_deets(ingr_name, calgrams, macros)
-        grams = ingredient.calgrams
-        calories = grams[0]
-        grams = grams[1]
-        print(f"\nEntering {grams} grams, or {calories} calories of {ingredient.name} "
-              f"into recipe ")
+        if not choice:
+            # If ingredient not in database
+            grams = str(input(f"How many grams is the standard serving for {ingr_name}? "))
+            calories = str(input(f"How many calories for {grams} grams of {ingr_name}? "))
+            macros = add_macros()
+            calgrams = (grams, calories)
+            print(calgrams)
+
+            # Adds ingredient object and adds to database
+            ingredient = AddIngr(ingr_name, calgrams, macros)
+            ingredient.add_deets(ingr_name, calgrams, macros)
+
+            # Displays object
+            calgrams = ingredient.calgrams
+            calories = calgrams[1]
+            grams = calgrams[0]
+            name = ingredient.name
+            print(f"\n{grams} grams or {calories} calories of {name}")
+
+    finally:
+        calgrams = ingredient.calgrams
+        std_grams = int(calgrams[0])
+        calories = int(calgrams[1])
+        print(f"\nStandard serving is {std_grams} grams, for {calories} calories of {ingredient.name}")
+        instance_grams = int(input("How many grams for your serving this time? "))
+        macros = ingredient.macros
+        percentage = instance_grams / std_grams
+
+        instance_cals = calories * percentage
+        instance_macros = [int(i) * percentage for i in macros]
+        calgrams = (instance_grams, instance_cals)
+        ingredient.calgrams = calgrams
+        ingredient.macros = instance_macros
+
         return ingredient
 
 
 def rec_db_logic():
-    ingredient_list = []
+    ingredients = []
 
     # Search for recipe in database
     rec_name = input("\nEnter recipe name to search for: ")
@@ -227,16 +250,14 @@ def rec_db_logic():
 
     # User chooses if premade recipe is correct. Assigns True or False to choice
     choice = choose(recipe)
-    # If recipe in database, recipe log is saved
+    # If recipe in database, recipe is resaved with the same details
     if choice:
         recipe = recipe[0]
         rec_name = recipe[0]
-        calories = recipe[1]
-        ingredient_list.append(recipe[2])
-        ingredient_list = str(ingredient_list)
+        macros = recipe[1]
+        ingredients = recipe[2]
         print("\nRecipe found!")
-        recipe = AddRecipe(rec_name, calories, ingredient_list)
-        return recipe
+        recipe = AddRecipe(rec_name, macros, ingredients)
 
     # If recipe not in database, User adds the details
     elif not choice:
@@ -244,19 +265,31 @@ def rec_db_logic():
 
         # Controls state of play
         calories = 0
+        rec_macros = [0, 0, 0, 0, 0]
+
         ingr_play = True
         while ingr_play:
+
             # Calls ingr_db_logic, searches db to insert or return ingredient
             ingredient = ingr_db_logic()
-            ingredient_list.append(ingredient.name)
-            calgrams = ingredient.calories
-            calories += int(calgrams[0])
+            tup_ingredients = (ingredient.name, ingredient.calgrams[0], ingredient.calgrams[1])
+            macros = ingredient.macros
+            res_list = [rec_macros[i] + macros[i] for i in range(len(macros))]
+            rec_macros = res_list
+
+            ingredients.append(tup_ingredients)
+            calgrams = ingredient.calgrams
+            grams = calgrams[0]
+            calories += calgrams[1]
+
+            print(f"\nEntering into recipe:\n\n{grams} grams of {ingredient.name} \n{calgrams[1]} calories \n")
+            print(f"\nRecipe so far is {calories} calories")
 
             # Asks if user is finished adding to ingredient list
             ingr_play = ask_another("ingredient")
 
-        recipe = make_recipe(rec_name, calories, ingredient_list)
-        return recipe
+        recipe = make_recipe(rec_name, rec_macros, ingredients)
+    return recipe
 
 
 def main():
@@ -268,9 +301,11 @@ def main():
 
         # Add recipe to log
         date_time = datetime.now()
+        ingr_list = recipe.ingr_list
+
         print(f"\nRecipe name is: {recipe.name}\n"
-              f"Calories in this recipe are: {recipe.calories}\n"
-              f"Ingredients are: {recipe.ingr_list}\n")
+              f"Macros in this recipe are: {recipe.calories}\n"
+              f"Ingredients are: {ingr_list}\n")
         addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
         addlog.add_deets(recipe.name, date_time, recipe.ingr_list)
 
