@@ -37,7 +37,7 @@ class AddIngr(AddData):
         # Connect to database, insert a row of data into ingredient table and close
         con = set_con()
         cur = con.cursor()
-        values = (name, calories, grams, macros[0], macros[1], macros[2], macros[3], macros[4])
+        values = (name, grams, calories, macros[0], macros[1], macros[2], macros[3], macros[4])
         cur.execute(
             "REPLACE INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
             values)
@@ -236,6 +236,8 @@ def ingr_db_logic():
         ingredient.calgrams = calgrams
         ingredient.macros = instance_macros
 
+        print(calgrams)
+
         return ingredient
 
 
@@ -274,9 +276,8 @@ def rec_db_logic():
             ingredient = ingr_db_logic()
             tup_ingredients = (ingredient.name, ingredient.calgrams[0], ingredient.calgrams[1])
             macros = ingredient.macros
-            res_list = [rec_macros[i] + macros[i] for i in range(len(macros))]
-            rec_macros = res_list
-
+            sum_list = [a + b for a, b in zip(macros, rec_macros)]
+            rec_macros = sum_list
             ingredients.append(tup_ingredients)
             calgrams = ingredient.calgrams
             grams = calgrams[0]
