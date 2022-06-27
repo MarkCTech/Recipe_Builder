@@ -148,6 +148,14 @@ def set_db():
     con.commit()
     con.close()
 
+# def display_ingr_list(ingr_str):
+#     # Display the ingredient list in the log
+#
+#     lst = ingr_str
+#
+#     print(' ' + board[1] + ' | ' + board[2] + ' | ' + board[3])
+#     print('-----------')
+
 
 def choose(res_list):
     # Presents User with list of search results from recipe or ingredient query
@@ -303,10 +311,11 @@ def main():
         # Add recipe to log
         date_time = datetime.now()
         ingr_list = recipe.ingr_list
+        res = list(eval(ingr_list))
 
         print(f"\nRecipe name is: {recipe.name}\n"
               f"Macros in this recipe are: {recipe.calories}\n"
-              f"Ingredients are: {ingr_list}\n")
+              f"Ingredients are: {res}\n")
         addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
         addlog.add_deets(recipe.name, date_time, recipe.ingr_list)
 
