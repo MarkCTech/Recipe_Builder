@@ -14,11 +14,15 @@ class AddData:
 
 
 class AddRecipe(AddData):
-    def add_deets(self, name, macros, ingredients):
+    def __init__(self, name, macros, ingr_list):
+        super().__init__(name, macros, ingr_list)
+        self. macros = macros
+
+    def add_deets(self, name, macros, ingr_list):
         # Connect to database, insert a row of data into recipe table and close
         con = set_con()
         cur = con.cursor()
-        values = (name, macros, ingredients)
+        values = (name, macros, ingr_list)
         cur.execute(
             "REPLACE INTO recipes VALUES (?,?,?)",
             values)
@@ -94,7 +98,7 @@ class SearchIngr(Searcher):
 
 def ask_another(name):
     # Asks to add more recipes or ingredients
-    x = input(f"Add another {name}? (Y/N): ")
+    x = input(f"\nAdd another {name}? (Y/N): ")
     if x == '':
         print("Try again")
     elif x[0].lower() == 'y':
@@ -136,9 +140,9 @@ def set_db():
     path = (Path.cwd() / "database")
     path_obj = path / 'recipes.db'
     con = sqlite3.connect(str(path_obj))
-    # Sets cursor to handle SQL, and ensures tables are built
+    # Sets cursor to handle SQL, and ensures tables are built, with unique ingredients and recipes
     cur = con.cursor()
-    cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Calories,Ingredients)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Macros,Ingredients)''')
     cur. execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe ON recipes(Recipe);''')
     cur.execute('''CREATE TABLE IF NOT EXISTS ingredients (Ingredient,Grams,Calories,Protein,Carbs,Satfat,Unsat,
     Fibre)''')
@@ -148,13 +152,22 @@ def set_db():
     con.commit()
     con.close()
 
-# def display_ingr_list(ingr_str):
-#     # Display the ingredient list in the log
-#
-#     lst = ingr_str
-#
-#     print(' ' + board[1] + ' | ' + board[2] + ' | ' + board[3])
-#     print('-----------')
+
+def display_ingr_list(name, macros, ingr_list):
+    m = macros
+    # Display the ingredient list in the log
+    print(f"\n               {name}\n--------------------------------------------")
+    print("| Protein | Carbs | Satfat | Unsat | Fibre |")
+    print("| " + str(m[0]) + "    | " + str(m[1]) + "  | " + str(m[2]) +
+          "    | " + str(m[3]) + "   | " + str(m[4]) + "  |")
+    print("--------------------------------------------")
+    print("\n           Ingredients")
+    print("---------------------------------")
+    print("| Ingredient | Grams | Calories |")
+    print(' ------------------------------')
+    for x in ingr_list:
+        print("| " + str(x[0]) + "    | " + str(x[1]) + "    | " + str(x[2]) + "    |")
+    print("---------------------------------")
 
 
 def choose(res_list):
@@ -174,16 +187,6 @@ def choose(res_list):
                     continue
         except ValueError:
             print('Must be integer, Try Again!')
-
-
-def make_recipe(name, macros, ingredient_list):
-    # Adds recipe to database
-    rec_name = str(name)
-    macros = str(macros)
-    ingr_list = str(ingredient_list)
-    recipe = AddRecipe(rec_name, macros, ingr_list)
-    recipe.add_deets(rec_name, macros, ingr_list)
-    return recipe
 
 
 def ingr_db_logic():
@@ -216,7 +219,6 @@ def ingr_db_logic():
             calories = str(input(f"How many calories for {grams} grams of {ingr_name}? "))
             macros = add_macros()
             calgrams = (grams, calories)
-            print(calgrams)
 
             # Adds ingredient object and adds to database
             ingredient = AddIngr(ingr_name, calgrams, macros)
@@ -275,17 +277,18 @@ def rec_db_logic():
 
         # Controls state of play
         calories = 0
-        rec_macros = [0, 0, 0, 0, 0]
+        macros = [0, 0, 0, 0, 0]
 
         ingr_play = True
         while ingr_play:
 
             # Calls ingr_db_logic, searches db to insert or return ingredient
             ingredient = ingr_db_logic()
+
             tup_ingredients = (ingredient.name, ingredient.calgrams[0], ingredient.calgrams[1])
-            macros = ingredient.macros
-            sum_list = [a + b for a, b in zip(macros, rec_macros)]
-            rec_macros = sum_list
+            ingr_macros = ingredient.macros
+            sum_list = [a + b for a, b in zip(macros, ingr_macros)]
+            macros = sum_list
             ingredients.append(tup_ingredients)
             calgrams = ingredient.calgrams
             grams = calgrams[0]
@@ -297,7 +300,11 @@ def rec_db_logic():
             # Asks if user is finished adding to ingredient list
             ingr_play = ask_another("ingredient")
 
-        recipe = make_recipe(rec_name, rec_macros, ingredients)
+        rec_name = str(rec_name)
+        macros = str(macros)
+        ingredients = str(ingredients)
+        recipe = AddRecipe(rec_name, macros, ingredients)
+        recipe.add_deets(rec_name, macros, ingredients)
     return recipe
 
 
@@ -310,12 +317,11 @@ def main():
 
         # Add recipe to log
         date_time = datetime.now()
-        ingr_list = recipe.ingr_list
-        res = list(eval(ingr_list))
-
-        print(f"\nRecipe name is: {recipe.name}\n"
-              f"Macros in this recipe are: {recipe.calories}\n"
-              f"Ingredients are: {res}\n")
+        ingr_str = recipe.ingr_list
+        ingr_list = list(eval(ingr_str))
+        macros_str = recipe.macros
+        macros_list = list(eval(macros_str))
+        display_ingr_list(recipe.name, macros_list, ingr_list)
         addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
         addlog.add_deets(recipe.name, date_time, recipe.ingr_list)
 
