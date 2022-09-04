@@ -4,73 +4,39 @@ from pathlib import Path
 
 
 class AddData:
-    def __init__(self, name, calories, ingr_list):
+    def __init__(self, name):
         self.name = name
-        self.calories = calories
-        self.ingr_list = ingr_list
 
     def add_deets(self, *args):
         print("Add SQL values to database")
 
+    def search(self, name):
+        # Connect to database, searches/returns the name of a row of data and closes connection
+        print("Returns database query")
 
-class AddRecipe(AddData):
-    def __init__(self, name, macros, ingr_list):
-        super().__init__(name, macros, ingr_list)
-        self. macros = macros
+    def populate(self, search_result):
+        print("Populates attributes with SQL search results")
 
-    def add_deets(self, name, macros, ingr_list):
+
+class Recipe(AddData):
+    def __init__(self, name):
+        super().__init__(name)
+        self.grams = 0
+        self.calories = 0
+        self.macros = [0, 0, 0, 0, 0]
+        self.ingr_list = []
+
+    def add_deets(self, name, grams, calories, macros, ingr_list):
         # Connect to database, insert a row of data into recipe table and close
         con = set_con()
         cur = con.cursor()
-        values = (name, macros, ingr_list)
+        values = (name, grams, calories, macros, ingr_list)
         cur.execute(
-            "REPLACE INTO recipes VALUES (?,?,?)",
+            "REPLACE INTO recipes VALUES (?,?,?,?,?)",
             values)
         end_con(con)
-
-
-class AddIngr(AddData):
-    def __init__(self, name, calgrams, macros):
-        super().__init__(name, calgrams, macros)
-        self.calgrams = calgrams
-        self.macros = macros
-
-    def add_deets(self, name, calgrams, macros):
-        calories = calgrams[1]
-        grams = calgrams[0]
-        # Connect to database, insert a row of data into ingredient table and close
-        con = set_con()
-        cur = con.cursor()
-        values = (name, grams, calories, macros[0], macros[1], macros[2], macros[3], macros[4])
-        cur.execute(
-            "REPLACE INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
-            values)
-        end_con(con)
-
-
-class AddLog(AddData):
-    def add_deets(self, recipe_name, date_time, ingredients):
-        # Connect to database, insert a row of data into daily log and close
-        con = set_con()
-        cur = con.cursor()
-        values = (recipe_name, date_time, ingredients)
-        cur.execute(
-            "INSERT INTO log VALUES (?,?,?)",
-            values)
-        end_con(con)
-
-
-class Searcher:
-    def __init__(self, name):
-        self.name = name
 
     def search(self, name):
-        print("Returns database query")
-
-
-class SearchRec(Searcher):
-    def search(self, name):
-        # Connect to database, searches the name of a row of data and close
         con = set_con()
         cur = con.cursor()
         try:
@@ -81,10 +47,31 @@ class SearchRec(Searcher):
         finally:
             end_con(con)
 
+    def populate(self, search_results):
+        self.grams = search_results[0][1]
+        self.calories = search_results[0][2]
+        self.macros = search_results[0][3]
+        self.ingr_list = search_results[0][4]
 
-class SearchIngr(Searcher):
+
+class Ingredient(AddData):
+    def __init__(self, name):
+        super().__init__(name)
+        self.grams = 0
+        self.calories = 0
+        self.macros = [0, 0, 0, 0, 0]
+
+    def add_deets(self, name, grams, calories, macros):
+        # Connect to database, insert a row of data into ingredient table and close
+        con = set_con()
+        cur = con.cursor()
+        values = (name, grams, calories, macros[0], macros[1], macros[2], macros[3], macros[4])
+        cur.execute(
+            "REPLACE INTO ingredients VALUES (?,?,?,?,?,?,?,?)",
+            values)
+        end_con(con)
+
     def search(self, name):
-        # Connect to database, searches the name of a row of data and close
         con = set_con()
         cur = con.cursor()
         try:
@@ -94,6 +81,23 @@ class SearchIngr(Searcher):
             return [None]
         finally:
             end_con(con)
+
+    def populate(self, search_result):
+        self.grams = str(search_result[1])
+        self.calories = str(search_result[2])
+        self.macros = search_result[3:]
+
+
+class AddLog(AddData):
+    def add_deets(self, recipe_name, date_time, calories, ingredients):
+        # Connect to database, insert a row of data into daily log and close
+        con = set_con()
+        cur = con.cursor()
+        values = (recipe_name, date_time, calories, ingredients)
+        cur.execute(
+            "INSERT INTO log VALUES (?,?,?,?)",
+            values)
+        end_con(con)
 
 
 def ask_another(name):
@@ -142,12 +146,12 @@ def set_db():
     con = sqlite3.connect(str(path_obj))
     # Sets cursor to handle SQL, and ensures tables are built, with unique ingredients and recipes
     cur = con.cursor()
-    cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Macros,Ingredients)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS recipes (Recipe,Grams,Calories,Macros,Ingredients)''')
     cur. execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe ON recipes(Recipe);''')
     cur.execute('''CREATE TABLE IF NOT EXISTS ingredients (Ingredient,Grams,Calories,Protein,Carbs,Satfat,Unsat,
     Fibre)''')
     cur. execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_ingredient ON ingredients(Ingredient);''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS log (Name, DateTime, Ingredients)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS log (Name,DateTime,Calories,Ingredients)''')
     # Commit the changes and close
     con.commit()
     con.close()
@@ -171,8 +175,7 @@ def display_ingr_list(name, macros, ingr_list):
 
 
 def choose(res_list):
-    # Presents User with list of search results from recipe or ingredient query
-    # And asks them to pick one, or enter 0 for none
+    # Presents User with search results from recipe or ingredient query
     print(f"\nAre these the details you're looking for? \n\n{res_list}")
     while True:
         try:
@@ -189,122 +192,88 @@ def choose(res_list):
             print('Must be integer, Try Again!')
 
 
+def convert_serving(ingredient):
+    # Asks serving size for this instance and adjusts ingredient object
+    print(f"\nUsual serving is {ingredient.grams} grams, for {ingredient.calories} calories of {ingredient.name}")
+    instance_grams = int(input("How many grams for your serving this time? "))
+    percentage = instance_grams / int(ingredient.grams)
+    instance_cals = int(ingredient.calories) * percentage
+    instance_macros = [int(i) * percentage for i in ingredient.macros]
+
+    ingredient.grams = instance_grams
+    ingredient.calories = instance_cals
+    ingredient.macros = instance_macros
+
+
 def ingr_db_logic():
-    # Search for ingredient, User choose which or none
+    # Search for ingredient in database
     ingr_name = input("Enter Ingredient to add to recipe: ")
-    srch_ingr = SearchIngr(ingr_name)
-    ingredient = srch_ingr.search(ingr_name)
-    choice = choose(ingredient)
+    ingredient = Ingredient(ingr_name)
+    search = ingredient.search(ingr_name)
+    choice = choose(search)  # User chooses if premade ingredient is present and correct
 
     # User chooses an ingredient or makes it, enters grams per STANDARD serving / THIS serving
     try:
         if choice:
             # If choice is True, premade ingredient is added to ingredient list
-            ingr = ingredient[0]
-            print(f"\nIngredient found: {ingr[0]}")
-            print(ingr)
 
-            grams = str(ingr[1])
-            calories = str(ingr[2])
-            macros = ingr[3:]
-
-            calgrams = (grams, calories)
-
-            # Creates ingredient object
-            ingredient = AddIngr(ingr_name, calgrams, macros)
+            print(f"\nIngredient found!")
+            print(f'{ingredient.name}')
+            ingredient.populate(search[0])
 
         if not choice:
             # If ingredient not in database
-            grams = str(input(f"How many grams is the standard serving for {ingr_name}? "))
-            calories = str(input(f"How many calories for {grams} grams of {ingr_name}? "))
-            macros = add_macros()
-            calgrams = (grams, calories)
+            ingredient.grams = str(input(f"How many grams is the standard serving for {ingr_name}? "))
+            ingredient.calories = str(input(f"How many calories for {ingredient.grams} grams of {ingr_name}? "))
+            ingredient.macros = add_macros()
 
-            # Adds ingredient object and adds to database
-            ingredient = AddIngr(ingr_name, calgrams, macros)
-            ingredient.add_deets(ingr_name, calgrams, macros)
+            # Adds Ingredient to database
+            ingredient.add_deets(ingr_name, ingredient.grams, ingredient.calories, ingredient.macros)
 
             # Displays object
-            calgrams = ingredient.calgrams
-            calories = calgrams[1]
-            grams = calgrams[0]
-            name = ingredient.name
-            print(f"\n{grams} grams or {calories} calories of {name}")
+            print(f"\n{ingredient.grams} grams or {ingredient.calories} calories of {ingredient.name}")
 
     finally:
-        calgrams = ingredient.calgrams
-        std_grams = int(calgrams[0])
-        calories = int(calgrams[1])
-        print(f"\nStandard serving is {std_grams} grams, for {calories} calories of {ingredient.name}")
-        instance_grams = int(input("How many grams for your serving this time? "))
-        macros = ingredient.macros
-        percentage = instance_grams / std_grams
-
-        instance_cals = calories * percentage
-        instance_macros = [int(i) * percentage for i in macros]
-        calgrams = (instance_grams, instance_cals)
-        ingredient.calgrams = calgrams
-        ingredient.macros = instance_macros
-
-        print(calgrams)
-
+        convert_serving(ingredient)
         return ingredient
 
 
 def rec_db_logic():
-    ingredients = []
-
     # Search for recipe in database
     rec_name = input("\nEnter recipe name to search for: ")
-    srch_rec = SearchRec(rec_name)
-    recipe_list = srch_rec.search(rec_name)
-    recipe = recipe_list
+    recipe = Recipe(rec_name)
+    search = recipe.search(rec_name)
+    # User chooses if premade recipe is present and correct
+    choice = choose(search)
 
-    # User chooses if premade recipe is correct. Assigns True or False to choice
-    choice = choose(recipe)
     # If recipe in database, recipe is resaved with the same details
     if choice:
-        recipe = recipe[0]
-        rec_name = recipe[0]
-        macros = recipe[1]
-        ingredients = recipe[2]
+        recipe.populate(search)
         print("\nRecipe found!")
-        recipe = AddRecipe(rec_name, macros, ingredients)
 
     # If recipe not in database, User adds the details
     elif not choice:
         print("\nRecipe not found, please add it yourself!")
-
-        # Controls state of play
-        calories = 0
-        macros = [0, 0, 0, 0, 0]
-
+        # Adds ingredients to Recipe
         ingr_play = True
         while ingr_play:
-
-            # Calls ingr_db_logic, searches db to insert or return ingredient
+            # Searches database to insert and/or return ingredient
             ingredient = ingr_db_logic()
-
-            tup_ingredients = (ingredient.name, ingredient.calgrams[0], ingredient.calgrams[1])
-            ingr_macros = ingredient.macros
-            sum_list = [a + b for a, b in zip(macros, ingr_macros)]
-            macros = sum_list
-            ingredients.append(tup_ingredients)
-            calgrams = ingredient.calgrams
-            grams = calgrams[0]
-            calories += calgrams[1]
-
-            print(f"\nEntering into recipe:\n\n{grams} grams of {ingredient.name} \n{calgrams[1]} calories \n")
-            print(f"\nRecipe so far is {calories} calories")
+            # Adds ingredient data to Recipe object
+            recipe.grams += ingredient.grams
+            recipe.calories += ingredient.calories
+            recipe.macros = [a + b for a, b in zip(recipe.macros, ingredient.macros)]
+            recipe.ingr_list.append((ingredient.name, ingredient.grams, ingredient.calories, ingredient.macros))
+            print(f"\nEntering into recipe:\n\n"
+                  f"{ingredient.grams} grams of {ingredient.name}\n"
+                  f"{ingredient.calories} calories \n")
+            print(f"\nRecipe so far is {recipe.calories} calories")
 
             # Asks if user is finished adding to ingredient list
             ingr_play = ask_another("ingredient")
 
-        rec_name = str(rec_name)
-        macros = str(macros)
-        ingredients = str(ingredients)
-        recipe = AddRecipe(rec_name, macros, ingredients)
-        recipe.add_deets(rec_name, macros, ingredients)
+        recipe.add_deets(str(rec_name), str(recipe.grams), str(recipe.calories),
+                         str(recipe.macros), str(recipe.ingr_list))
     return recipe
 
 
@@ -317,13 +286,10 @@ def main():
 
         # Add recipe to log
         date_time = datetime.now()
-        ingr_str = recipe.ingr_list
-        ingr_list = list(eval(ingr_str))
-        macros_str = recipe.macros
-        macros_list = list(eval(macros_str))
-        display_ingr_list(recipe.name, macros_list, ingr_list)
-        addlog = AddLog(recipe.name, date_time, recipe.ingr_list)
-        addlog.add_deets(recipe.name, date_time, recipe.ingr_list)
+
+        display_ingr_list(recipe.name, recipe.macros, recipe.ingr_list)
+        addlog = AddLog(recipe.name)
+        addlog.add_deets(str(recipe.name), str(date_time), str(recipe.calories), str(recipe.ingr_list))
 
         # Asks if finished
         play_check = ask_another("recipe")
