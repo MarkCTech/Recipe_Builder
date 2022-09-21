@@ -82,10 +82,10 @@ class Ingredient(AddData):
         finally:
             end_con(con)
 
-    def populate(self, search_result):
-        self.grams = str(search_result[1])
-        self.calories = str(search_result[2])
-        self.macros = search_result[3:]
+    def populate(self, search):
+        self.grams = str(search[1])
+        self.calories = str(search[2])
+        self.macros = search[3:]
 
 
 class AddLog(AddData):
@@ -158,20 +158,50 @@ def set_db():
 
 
 def display_ingr_list(name, macros, ingr_list):
-    m = macros
+    m = rmv_paren(str(macros))
     # Display the ingredient list in the log
     print(f"\n               {name}\n--------------------------------------------")
     print("| Protein | Carbs | Satfat | Unsat | Fibre |")
-    print("| " + str(m[0]) + "    | " + str(m[1]) + "  | " + str(m[2]) +
-          "    | " + str(m[3]) + "   | " + str(m[4]) + "  |")
+    print("| " + m[0] + "    | " + m[1] + "  | " + m[2] +
+          "    | " + m[3] + "   | " + m[4] + "  |")
     print("--------------------------------------------")
     print("\n           Ingredients")
     print("---------------------------------")
     print("| Ingredient | Grams | Calories |")
     print(' ------------------------------')
-    for x in ingr_list:
-        print("| " + str(x[0]) + "    | " + str(x[1]) + "    | " + str(x[2]) + "    |")
-    print("---------------------------------")
+    ingrs = rmv_paren(str(ingr_list))
+    for i in ingrs:
+        print("| " + str(i[0]) + "    | " + str(i[1]) + "    | " + str(i[2]) + "    |")
+        print("---------------------------------")
+
+
+def rmv_paren(mystr):
+    stack = ""
+    heap = []
+    returnable = []
+    noinclude = ["(", ")", ",", "'", "[", "]", " "]
+    close = [")", ",", "]"]
+    for i in mystr:
+        append_play = True
+        while append_play:
+            if i not in noinclude:
+                stack += i
+            if i in close:
+                if len(stack) > 0:
+                    heap.append(stack)
+                if i == ")" or i == mystr[-1]:
+                    if len(heap) > 0:
+                        returnable.append(heap)
+                    heap = []
+                stack = ""
+            break
+
+    if len(returnable) > 1:
+        return returnable
+    elif len(returnable) == 1:
+        return returnable[0]
+    else:
+        return "Error, cannot parse string"
 
 
 def choose(res_list):
@@ -182,9 +212,9 @@ def choose(res_list):
             x = str(input("\nEnter Yes or No: "))
             if type(x) is str:
                 if x[0].lower() == 'n':
-                    return False
+                    return 0
                 elif x[0].lower() == 'y':
-                    return True
+                    return 1
                 else:
                     print("Must be y or n")
                     continue
@@ -286,7 +316,6 @@ def main():
 
         # Add recipe to log
         date_time = datetime.now()
-
         display_ingr_list(recipe.name, recipe.macros, recipe.ingr_list)
         addlog = AddLog(recipe.name)
         addlog.add_deets(str(recipe.name), str(date_time), str(recipe.calories), str(recipe.ingr_list))
